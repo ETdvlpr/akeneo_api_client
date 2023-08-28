@@ -84,7 +84,7 @@ void main() {
     test('Create, Get, Update Attribute', () async {
       Attribute attribute = Attribute(
         code: 'test_attr',
-        type: AttributeType.SimpleSelect.value,
+        type: AttributeType.simpleSelect.value,
         group: 'test_group',
       );
 

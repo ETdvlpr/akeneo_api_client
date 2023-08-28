@@ -43,7 +43,7 @@ var apiClient = AkeneoApiClient(
 // Create an attribute
 var attribute = Attribute(
         code: 'test_attr',
-        type: AttributeType.Text.value,
+        type: AttributeType.text.value,
         group: 'test_group',
       );
 await apiClient.createAttribute(attribute);
