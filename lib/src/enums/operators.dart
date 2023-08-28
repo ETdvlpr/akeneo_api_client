@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
+/// Enumeration of operators used in Akeneo search filters.
 enum AkeneoOperator {
   @JsonValue('STARTS WITH')
   startsWith,
@@ -27,21 +28,15 @@ enum AkeneoOperator {
   greaterThan,
   @JsonValue('>=')
   greaterThanOrEqual,
-  @JsonValue('=')
-  dateEqual,
-  @JsonValue('!=')
-  dateNotEqual,
-  @JsonValue('<')
-  dateLessThan,
-  @JsonValue('>')
-  dateGreaterThan,
   @JsonValue('BETWEEN')
   dateBetween,
   @JsonValue('NOT BETWEEN')
   dateNotBetween,
 }
 
+/// Extension for the `AkeneoOperator` enum providing a string representation for JSON serialization.
 extension AkeneoOperatorValue on AkeneoOperator {
+  /// Returns the string value corresponding to the enum value for JSON serialization.
   String get value {
     switch (this) {
       case AkeneoOperator.startsWith:
@@ -70,14 +65,6 @@ extension AkeneoOperatorValue on AkeneoOperator {
         return '>';
       case AkeneoOperator.greaterThanOrEqual:
         return '>=';
-      case AkeneoOperator.dateEqual:
-        return '=';
-      case AkeneoOperator.dateNotEqual:
-        return '!=';
-      case AkeneoOperator.dateLessThan:
-        return '<';
-      case AkeneoOperator.dateGreaterThan:
-        return '>';
       case AkeneoOperator.dateBetween:
         return 'BETWEEN';
       case AkeneoOperator.dateNotBetween:

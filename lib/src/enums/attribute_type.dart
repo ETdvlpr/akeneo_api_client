@@ -1,3 +1,4 @@
+/// Enumeration of attribute types used in Akeneo.
 enum AttributeType {
   identifier,
   text,
@@ -13,7 +14,9 @@ enum AttributeType {
   file,
 }
 
+/// Extension for the `AttributeType` enum providing a string representation for JSON serialization.
 extension AttributeTypeValue on AttributeType {
+  /// Returns the string value corresponding to the enum value for JSON serialization.
   String get value {
     switch (this) {
       case AttributeType.identifier:

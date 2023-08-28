@@ -3,6 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'freezed_models.freezed.dart';
 part 'freezed_models.g.dart';
 
+/// Represents an attribute in Akeneo.
 @freezed
 class Attribute with _$Attribute {
   const factory Attribute({
@@ -45,6 +46,7 @@ class Attribute with _$Attribute {
       _$AttributeFromJson(json);
 }
 
+/// Represents an attribute group in Akeneo.
 @freezed
 class AttributeGroup with _$AttributeGroup {
   const factory AttributeGroup({
@@ -59,6 +61,7 @@ class AttributeGroup with _$AttributeGroup {
       _$AttributeGroupFromJson(json);
 }
 
+// Represents an attribute option in Akeneo
 @freezed
 class AttributeOption with _$AttributeOption {
   const factory AttributeOption({
@@ -73,6 +76,7 @@ class AttributeOption with _$AttributeOption {
       _$AttributeOptionFromJson(json);
 }
 
+// Represents a channel in Akeneo
 @freezed
 class Channel with _$Channel {
   const factory Channel({
@@ -89,6 +93,7 @@ class Channel with _$Channel {
       _$ChannelFromJson(json);
 }
 
+// Represents a category in Akeneo
 @freezed
 class Category with _$Category {
   const factory Category({
@@ -102,6 +107,7 @@ class Category with _$Category {
       _$CategoryFromJson(json);
 }
 
+// Represents a family in Akeneo
 @freezed
 class Family with _$Family {
   const factory Family({
@@ -119,6 +125,7 @@ class Family with _$Family {
   factory Family.fromJson(Map<String, dynamic> json) => _$FamilyFromJson(json);
 }
 
+// Represents a family variant in Akeneo
 @freezed
 class FamilyVariant with _$FamilyVariant {
   const factory FamilyVariant({
@@ -133,6 +140,7 @@ class FamilyVariant with _$FamilyVariant {
       _$FamilyVariantFromJson(json);
 }
 
+// Used to define a variant attribute set when creating a family variant
 @freezed
 class VariantAttributeSet with _$VariantAttributeSet {
   const factory VariantAttributeSet({
@@ -145,6 +153,7 @@ class VariantAttributeSet with _$VariantAttributeSet {
       _$VariantAttributeSetFromJson(json);
 }
 
+// Represents a product in Akeneo
 @freezed
 class Product with _$Product {
   const factory Product({
@@ -164,6 +173,7 @@ class Product with _$Product {
       _$ProductFromJson(json);
 }
 
+// Represents a product model in Akeneo
 @freezed
 class ProductModel with _$ProductModel {
   const factory ProductModel({
@@ -183,6 +193,10 @@ class ProductModel with _$ProductModel {
 /// Response models
 ///
 
+/// Represents an error response returned from the API.
+///
+/// This class contains information about the error, including the error code,
+/// error message, links, and a list of API errors if applicable.
 @freezed
 class ErrorResponse with _$ErrorResponse {
   const factory ErrorResponse({
@@ -196,6 +210,10 @@ class ErrorResponse with _$ErrorResponse {
       _$ErrorResponseFromJson(json);
 }
 
+/// Represents a paginated response from the Akeneo API.
+///
+/// This class contains information about the links, current page number,
+/// item count, and embedded items within the response.
 @freezed
 class AkeneoPaginatedResponse with _$AkeneoPaginatedResponse {
   const factory AkeneoPaginatedResponse({
@@ -209,6 +227,10 @@ class AkeneoPaginatedResponse with _$AkeneoPaginatedResponse {
       _$AkeneoPaginatedResponseFromJson(json);
 }
 
+/// Represents a collection of hyperlinks for navigation.
+///
+/// This class includes references to self, first, next, previous, and
+/// documentation URLs related to the API response.
 @freezed
 class Links with _$Links {
   const factory Links({
@@ -222,6 +244,9 @@ class Links with _$Links {
   factory Links.fromJson(Map<String, dynamic> json) => _$LinksFromJson(json);
 }
 
+/// Represents a hyperlink URL reference.
+///
+/// This class contains the URL (href) of a hyperlink reference.
 @freezed
 class UrlReference with _$UrlReference {
   const factory UrlReference({
@@ -232,6 +257,9 @@ class UrlReference with _$UrlReference {
       _$UrlReferenceFromJson(json);
 }
 
+/// Represents embedded items within a paginated response.
+///
+/// This class holds a list of dynamic items embedded within the response.
 @freezed
 class Embedded with _$Embedded {
   const factory Embedded({
@@ -242,6 +270,7 @@ class Embedded with _$Embedded {
       _$EmbeddedFromJson(json);
 }
 
+/// Represents a value in Akeneo.
 @freezed
 class Value with _$Value {
   const factory Value({
@@ -253,6 +282,9 @@ class Value with _$Value {
   factory Value.fromJson(Map<String, dynamic> json) => _$ValueFromJson(json);
 }
 
+/// Represents an API error in Akeneo.
+/// This class contains information about the property, message, attribute,
+/// a list of ApiErrors is returned in an error response
 @freezed
 class ApiError with _$ApiError {
   factory ApiError({

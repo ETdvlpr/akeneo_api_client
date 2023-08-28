@@ -3,11 +3,21 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 
+/// A wrapper for making authenticated HTTP requests to an Akeneo API endpoint.
 class HttpWrapper {
+  /// The base URL of the Akeneo instance.
   final Uri endpoint;
+
+  /// The client ID for authentication.
   final String clientId;
+
+  /// The client secret for authentication.
   final String clientSecret;
+
+  /// The username for authentication.
   final String userName;
+
+  /// The password for authentication.
   final String password;
 
   String? accessToken;
@@ -21,6 +31,8 @@ class HttpWrapper {
     required this.password,
   });
 
+  /// Refreshes the access token by making a request to the Akeneo API.
+  /// if the refresh token is null, it will use the username and password to get a new token
   Future<void> _refreshToken() async {
     final response = await http.post(
       endpoint.resolve('api/oauth/v1/token'),
@@ -50,6 +62,7 @@ class HttpWrapper {
     }
   }
 
+  /// Performs an authenticated HTTP request and handles token refreshing.
   Future<http.Response> _authenticatedRequest(
     Future<http.Response> Function(String accessToken) requestFunction,
   ) async {
@@ -67,6 +80,7 @@ class HttpWrapper {
     return response;
   }
 
+  /// Performs an authenticated GET request.
   Future<http.Response> get(String path,
       {Map<String, dynamic>? queryParameters}) {
     return _authenticatedRequest((accessToken) async {
@@ -83,6 +97,7 @@ class HttpWrapper {
     });
   }
 
+  /// Performs an authenticated PUT request.
   Future<http.Response> put(String path, Map<String, dynamic> data) {
     return _authenticatedRequest(
       (accessToken) => http.put(
@@ -93,6 +108,7 @@ class HttpWrapper {
     );
   }
 
+  /// Performs an authenticated PATCH request.
   Future<http.Response> patch(String path, Map<String, dynamic> data) {
     //remove null values from data
     data.removeWhere((key, value) => value == null);
@@ -110,6 +126,7 @@ class HttpWrapper {
     );
   }
 
+  /// Performs an authenticated DELETE request.
   Future<http.Response> delete(String path) {
     return _authenticatedRequest(
       (accessToken) => http.delete(
@@ -119,6 +136,7 @@ class HttpWrapper {
     );
   }
 
+  /// Performs an authenticated POST request.
   Future<http.Response> post(String path, Map<String, dynamic> data) {
     //remove null values from data
     data.removeWhere((key, value) => value == null);
@@ -136,6 +154,7 @@ class HttpWrapper {
     );
   }
 
+  /// Performs an authenticated POST request with a file.
   Future<http.Response> postFile({
     required String url,
     required String filePath,
