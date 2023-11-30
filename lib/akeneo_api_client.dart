@@ -28,5 +28,17 @@ export 'src/akeneo_api_client_base.dart';
 export 'src/enums/attribute_type.dart';
 export 'src/enums/operators.dart';
 export 'src/exceptions/api_exception.dart';
-export 'src/models/freezed_models.dart';
+
+export 'src/models/api_error.dart';
+export 'src/models/akeneo_paginated_response.dart';
+export 'src/models/attribute.dart';
+export 'src/models/attribute_group.dart';
+export 'src/models/attribute_option.dart';
+export 'src/models/category.dart';
+export 'src/models/channel.dart';
+export 'src/models/family.dart';
+export 'src/models/family_variant.dart';
+export 'src/models/product.dart';
+export 'src/models/product_model.dart';
 export 'src/models/query_parameters.dart';
+export 'src/models/value.dart';

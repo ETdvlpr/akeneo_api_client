@@ -158,8 +158,9 @@ void main() {
       try {
         existingFamily = await apiClient.getFamily(family.code);
       } catch (e) {
-        print(e);
+        printException(e);
       }
+      print(existingFamily);
       if (existingFamily == null) {
         final createResponse = await apiClient.createFamily(family);
         expect(createResponse.statusCode, equals(201));
@@ -222,7 +223,7 @@ void main() {
     });
 
     test('Product CRUD', () async {
-      const product = Product(
+      final product = Product(
         identifier: 'test_product',
         family: 'test_family',
         categories: ['test_category'],
@@ -239,7 +240,7 @@ void main() {
       try {
         existingProduct = await apiClient.getProduct(product.identifier);
       } catch (e) {
-        print(e);
+        printException(e);
       }
 
       if (existingProduct == null) {
@@ -273,7 +274,7 @@ void main() {
         existingProductModel =
             await apiClient.getProductModel(productModel.code);
       } catch (e) {
-        print(e);
+        printException(e);
       }
 
       if (existingProductModel == null) {
@@ -288,7 +289,7 @@ void main() {
       final updatedProductModel = getProductModelResponse.copyWith(
         values: {
           'test_attr': [
-            const Value(data: 'test_attr_option'),
+            Value(data: 'test_attr_option'),
           ]
         },
         categories: ['test_category'],
@@ -321,4 +322,10 @@ void main() {
       expect(searchResponse.embedded.items, isNotEmpty);
     });
   });
+}
+
+void printException(Object e) {
+  ApiException apiException = e as ApiException;
+  print(
+      "message: ${apiException.message}, error: ${apiException.errorResponse?.toJson()}");
 }

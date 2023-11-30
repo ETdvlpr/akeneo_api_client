@@ -1,36 +1,19 @@
-import 'package:json_annotation/json_annotation.dart';
-
 /// Enumeration of operators used in Akeneo search filters.
 enum AkeneoOperator {
-  @JsonValue('STARTS WITH')
   startsWith,
-  @JsonValue('CONTAINS')
   contains,
-  @JsonValue('DOES NOT CONTAIN')
   doesNotContain,
-  @JsonValue('=')
   equal,
-  @JsonValue('!=')
   notEqual,
-  @JsonValue('EMPTY')
   empty,
-  @JsonValue('NOT EMPTY')
   notEmpty,
-  @JsonValue('IN')
   inValue,
-  @JsonValue('NOT IN')
   notIn,
-  @JsonValue('<')
   lessThan,
-  @JsonValue('<=')
   lessThanOrEqual,
-  @JsonValue('>')
   greaterThan,
-  @JsonValue('>=')
   greaterThanOrEqual,
-  @JsonValue('BETWEEN')
   dateBetween,
-  @JsonValue('NOT BETWEEN')
   dateNotBetween,
 }
 

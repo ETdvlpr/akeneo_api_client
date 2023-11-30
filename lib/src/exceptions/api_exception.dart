@@ -1,4 +1,4 @@
-import 'package:akeneo_api_client/src/models/freezed_models.dart';
+import '../models/api_error.dart';
 
 /// Exception class representing errors that occur during API interactions.
 class ApiException implements Exception {
