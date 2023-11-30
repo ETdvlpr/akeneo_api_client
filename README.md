@@ -8,15 +8,6 @@ A Flutter library for consuming Akeneo PIM's RESTful API. This library provides 
 - Handle token refreshing automatically for extended sessions.
 - Convenient methods for creating, retrieving, updating, and deleting various entities.
 
-## Installation
-
-Add the following line to your `pubspec.yaml` file:
-
-```yaml
-dependencies:
-  akeneo_api_client: ^1.0.0
-```
-
 ## Usage
 
 ### Importing
@@ -62,6 +53,15 @@ await apiClient.updateAttribute(updatedAttribute);
 ### Handling Other Entities
 
 Likewise, you can utilize the `createEntity`, `getEntity`, and `updateEntity` methods for various aspects such as attribute options, families, categories, and products. Just replace "entity" with the specific name of the element you are working with.
+
+### Getting Images with Authentication
+
+To get an image with authentication:
+
+```dart
+var url = apiClient.getMediaFileUrl(attribute.value.data);
+var authHeader = {'Authorization': apiClient.bearerToken};
+```
 
 ## Contributing
 
