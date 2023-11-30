@@ -54,6 +54,11 @@ class AkeneoApiClient {
           password: password,
         );
 
+  /// Returns Bearer token for authentication
+  String get bearerToken {
+    return 'Bearer ${_httpWrapper.accessToken}';
+  }
+
   /// Creates an [ApiException] instance from the given [responseBody].
   ApiException _createApiExceptionFromResponse(String responseBody) {
     final Map<String, dynamic> json = jsonDecode(responseBody);
@@ -1047,5 +1052,10 @@ class AkeneoApiClient {
       throw ApiException(
           'An error occurred while creating the product media file: $e');
     }
+  }
+
+  /// Retruns url for media file download.
+  String getMediaFileUrl(String mediaFileIdentifier) {
+    return '${_httpWrapper.endpoint}/api/rest/v1/media-files/$mediaFileIdentifier/download';
   }
 }

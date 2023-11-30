@@ -163,7 +163,7 @@ class HttpWrapper {
   }) async {
     await _refreshToken();
 
-    final request = http.MultipartRequest('POST', Uri.parse(url));
+    final request = http.MultipartRequest('POST', endpoint.resolve(url));
 
     // Add authorization header
     request.headers['Authorization'] = 'Bearer $accessToken';
