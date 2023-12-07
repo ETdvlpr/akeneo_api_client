@@ -1,6 +1,6 @@
 name: akeneo_api_client
 description: A Dart library for Akeneo PIM API integration, simplifying product management tasks and interactions with Akeneo systems.
-version: 1.0.2
+version: 1.0.3
 repository: https://github.com/etdvlpr/akeneo_api_client
 
 topics: 
