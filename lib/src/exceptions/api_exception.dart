@@ -13,4 +13,9 @@ class ApiException implements Exception {
   /// The [message] parameter is a human-readable error description.
   /// The [errorResponse] parameter contains detailed error information from the API, if available.
   ApiException(this.message, {this.errorResponse});
+
+  @override
+  String toString() {
+    return 'ApiException: $message';
+  }
 }

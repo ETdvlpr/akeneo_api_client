@@ -1,13 +1,17 @@
+import 'package:akeneo_api_client/src/models/link.dart';
+
 /// Represents a value in Akeneo.
 class Value {
   final String? locale;
   final String? scope;
   final dynamic data;
+  final Links? links;
 
   Value({
     this.locale,
     this.scope,
     this.data,
+    this.links,
   });
 
   /// Creates an instance of [Value] from a JSON [Map].
@@ -16,6 +20,9 @@ class Value {
       locale: json['locale'] as String?,
       scope: json['scope'] as String?,
       data: json['data'],
+      links: json['links'] == null
+          ? null
+          : Links.fromJson(json['links'] as Map<String, dynamic>),
     );
   }
 
@@ -27,6 +34,7 @@ class Value {
       'locale': locale,
       'scope': scope,
       'data': data,
+      'links': links?.toJson(),
     };
   }
 
@@ -37,11 +45,13 @@ class Value {
     String? locale,
     String? scope,
     dynamic data,
+    Links? links,
   }) {
     return Value(
       locale: locale ?? this.locale,
       scope: scope ?? this.scope,
       data: data ?? this.data,
+      links: links ?? this.links,
     );
   }
 }

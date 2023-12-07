@@ -8,6 +8,7 @@ class Links {
   final UrlReference? next;
   final UrlReference? previous;
   final UrlReference? documentation;
+  final UrlReference? download;
 
   const Links({
     this.self,
@@ -15,6 +16,7 @@ class Links {
     this.next,
     this.previous,
     this.documentation,
+    this.download,
   });
 
   /// Creates an instance of [Links] from a JSON [Map].
@@ -38,6 +40,9 @@ class Links {
           ? null
           : UrlReference.fromJson(
               json['documentation'] as Map<String, dynamic>),
+      download: json['download'] == null
+          ? null
+          : UrlReference.fromJson(json['download'] as Map<String, dynamic>),
     );
   }
 
@@ -51,6 +56,7 @@ class Links {
       'next': next?.toJson(),
       'previous': previous?.toJson(),
       'documentation': documentation?.toJson(),
+      'download': download?.toJson(),
     };
   }
 
@@ -63,6 +69,7 @@ class Links {
     UrlReference? next,
     UrlReference? previous,
     UrlReference? documentation,
+    UrlReference? download,
   }) {
     return Links(
       self: self ?? this.self,
@@ -70,6 +77,7 @@ class Links {
       next: next ?? this.next,
       previous: previous ?? this.previous,
       documentation: documentation ?? this.documentation,
+      download: download ?? this.download,
     );
   }
 }

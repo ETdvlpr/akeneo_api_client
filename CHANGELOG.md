@@ -1,3 +1,7 @@
+## 1.0.3
+
+ - Add download link to Links class
+
 ## 1.0.2
 
 - Reduced dependencies.
