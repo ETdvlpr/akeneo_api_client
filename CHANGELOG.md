@@ -1,3 +1,8 @@
+## 1.0.4
+
+ - Update http package to 1.2.0
+ - Add methodology to catch network exceptions
+
 ## 1.0.3
 
  - Add download link to Links class

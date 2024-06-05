@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:akeneo_api_client/akeneo_api_client.dart';
+import 'package:akeneo_api_client/src/exceptions/network_exceptions.dart';
 import 'package:http/http.dart' as http;
 
 import 'http_wrapper.dart';
@@ -21,6 +22,9 @@ class AkeneoApiClient {
 
   /// A map of attribute codes to AttributeOption instances.
   final Map<String, AttributeOption> _attributeOptions = {};
+
+  /// debug mode
+  final bool debug;
 
   /// Creates an instance of [AkeneoApiClient] with the provided credentials
   ///
@@ -46,12 +50,14 @@ class AkeneoApiClient {
     required String userName,
     required String password,
     this.cacheAttributes = true,
+    this.debug = false,
   }) : _httpWrapper = HttpWrapper(
           endpoint: endpoint,
           clientId: clientId,
           clientSecret: clientSecret,
           userName: userName,
           password: password,
+          debug: debug,
         );
 
   /// Returns Bearer token for authentication
@@ -66,25 +72,36 @@ class AkeneoApiClient {
     return ApiException(errorResponse.message, errorResponse: errorResponse);
   }
 
-  /// Creates a new attribute on the Akeneo API.
-  ///
-  /// The [attribute] parameter represents the attribute to be created.
-  Future<http.Response> createAttribute(Attribute attribute) async {
+  /// Makes an API request and handles exceptions.
+  Future<T> _handleApiRequest<T>(
+    Future<http.Response> Function() request,
+    T Function(Map<String, dynamic> json) dataMapper,
+  ) async {
     try {
-      final attributeData = attribute.toJson();
-      final response =
-          await _httpWrapper.post('api/rest/v1/attributes', attributeData);
-
-      if (response.statusCode == 201) {
-        return response;
+      final response = await request();
+      if (response.statusCode ~/ 100 == 2) {
+        final Map<String, dynamic> json = jsonDecode(response.body);
+        return dataMapper(json);
       } else {
         throw _createApiExceptionFromResponse(response.body);
       }
     } on ApiException {
-      rethrow; // Rethrow ApiException directly
+      rethrow;
+    } on NetworkExceptions catch (e) {
+      throw ApiException(NetworkExceptions.getErrorMessage(e));
     } catch (e) {
-      throw ApiException('An error occurred while creating the attribute: $e');
+      throw ApiException('An error occurred: $e');
     }
+  }
+
+  /// Creates a new attribute on the Akeneo API.
+  ///
+  /// The [attribute] parameter represents the attribute to be created.
+  Future<http.Response> createAttribute(Attribute attribute) async {
+    return _handleApiRequest(() async {
+      final attributeData = attribute.toJson();
+      return await _httpWrapper.post('api/rest/v1/attributes', attributeData);
+    }, (json) => http.Response(json.toString(), 200));
   }
 
   /// Retrieves an attribute from the Akeneo API by its [attributeCode].
@@ -96,24 +113,18 @@ class AkeneoApiClient {
       return _attributes[attributeCode]!;
     }
 
-    try {
-      final response =
-          await _httpWrapper.get('api/rest/v1/attributes/$attributeCode');
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        final Attribute attribute = Attribute.fromJson(json);
-
+    return _handleApiRequest<Attribute>(
+      () async {
+        return await _httpWrapper.get('api/rest/v1/attributes/$attributeCode');
+      },
+      (json) {
+        final attribute = Attribute.fromJson(json);
         if (cacheAttributes) {
           _attributes[attributeCode] = attribute;
         }
-
         return attribute;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } catch (e) {
-      throw ApiException('An error occurred while fetching the attribute: $e');
-    }
+      },
+    );
   }
 
   /// Retrieves attributes from an Akeneo API endpoint with optional filtering and pagination.
@@ -139,51 +150,36 @@ class AkeneoApiClient {
   Future<AkeneoPaginatedResponse> getAttributes({
     QueryParameter? params,
   }) async {
-    try {
-      final response = await _httpWrapper.get(
-        'api/rest/v1/attributes',
-        queryParameters: params?.toJson(),
-      );
-
-      if (response.statusCode == 200) {
-        return AkeneoPaginatedResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while fetching attributes: $e');
-    }
+    return _handleApiRequest<AkeneoPaginatedResponse>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/attributes',
+          queryParameters: params?.toJson(),
+        );
+      },
+      (json) => AkeneoPaginatedResponse.fromJson(json),
+    );
   }
 
   /// Updates an existing attribute on the Akeneo API.
   ///
   /// The [updatedAttribute] parameter contains the updated attribute data.
   Future<http.Response> updateAttribute(Attribute updatedAttribute) async {
-    try {
+    return _handleApiRequest(() async {
       final updatedAttributeData = updatedAttribute.toJson();
       final attributeCode = updatedAttribute.code;
 
-      // Remove uneditable values from data
       updatedAttributeData.remove('code');
       updatedAttributeData.remove('type');
       updatedAttributeData.remove('scopable');
       updatedAttributeData.remove('localizable');
       updatedAttributeData.remove('unique');
 
-      final response = await _httpWrapper.patch(
-          'api/rest/v1/attributes/$attributeCode', updatedAttributeData);
-      if (response.statusCode == 204) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while updating the attribute: $e');
-    }
+      return await _httpWrapper.patch(
+        'api/rest/v1/attributes/$attributeCode',
+        updatedAttributeData,
+      );
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Creates a new attribute group.
@@ -196,22 +192,11 @@ class AkeneoApiClient {
   /// Throws an [ApiException] if an error occurs during the API request.
   Future<http.Response> createAttributeGroup(
       AttributeGroup attributeGroup) async {
-    try {
+    return _handleApiRequest(() async {
       final attributeGroupData = attributeGroup.toJson();
-      final response = await _httpWrapper.post(
+      return await _httpWrapper.post(
           'api/rest/v1/attribute-groups', attributeGroupData);
-
-      if (response.statusCode == 201) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while creating the attribute group: $e');
-    }
+    }, (json) => http.Response(json.toString(), 201));
   }
 
   /// Retrieves an attribute group by its code.
@@ -222,22 +207,13 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request.
   Future<AttributeGroup> getAttributeGroup(String attributeGroupCode) async {
-    try {
-      final response = await _httpWrapper
-          .get('api/rest/v1/attribute-groups/$attributeGroupCode');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return AttributeGroup.fromJson(json);
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while fetching the attribute group: $e');
-    }
+    return _handleApiRequest<AttributeGroup>(
+      () async {
+        return await _httpWrapper
+            .get('api/rest/v1/attribute-groups/$attributeGroupCode');
+      },
+      (json) => AttributeGroup.fromJson(json),
+    );
   }
 
   /// Retrieves a paginated list of attribute groups.
@@ -250,23 +226,15 @@ class AkeneoApiClient {
   Future<AkeneoPaginatedResponse> getAttributeGroups({
     QueryParameter? params,
   }) async {
-    try {
-      final response = await _httpWrapper.get(
-        'api/rest/v1/attribute-groups',
-        queryParameters: params?.toJson(),
-      );
-
-      if (response.statusCode == 200) {
-        return AkeneoPaginatedResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while fetching attribute groups: $e');
-    }
+    return _handleApiRequest<AkeneoPaginatedResponse>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/attribute-groups',
+          queryParameters: params?.toJson(),
+        );
+      },
+      (json) => AkeneoPaginatedResponse.fromJson(json),
+    );
   }
 
   /// Updates an existing attribute group.
@@ -278,26 +246,16 @@ class AkeneoApiClient {
   /// Returns a [http.Response] with status code 204 if successful
   Future<http.Response> updateAttributeGroup(
       AttributeGroup updatedAttributeGroup) async {
-    try {
+    return _handleApiRequest(() async {
       final updatedAttributeGroupData = updatedAttributeGroup.toJson();
       final attributeGroupCode = updatedAttributeGroup.code;
       updatedAttributeGroupData.remove('code');
 
-      final response = await _httpWrapper.patch(
+      return await _httpWrapper.patch(
         'api/rest/v1/attribute-groups/$attributeGroupCode',
         updatedAttributeGroupData,
       );
-
-      if (response.statusCode != 204) {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while updating the attribute group: $e');
-    }
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Creates a new attribute option.
@@ -308,24 +266,13 @@ class AkeneoApiClient {
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> createAttributeOption(
       AttributeOption attributeOption) async {
-    try {
+    return _handleApiRequest(() async {
       final attributeOptionData = attributeOption.toJson();
-      final response = await _httpWrapper.post(
+      return await _httpWrapper.post(
         'api/rest/v1/attributes/${attributeOption.attribute}/options',
         attributeOptionData,
       );
-
-      if (response.statusCode == 201) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while creating the attribute option: $e');
-    }
+    }, (json) => http.Response(json.toString(), 201));
   }
 
   /// Retrieves an attribute option by its attribute code and option code.
@@ -346,28 +293,20 @@ class AkeneoApiClient {
       return _attributeOptions[cacheKey]!;
     }
 
-    try {
-      final response = await _httpWrapper.get(
-        'api/rest/v1/attributes/$attributeCode/options/$attributeOptionCode',
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        final AttributeOption attributeOption = AttributeOption.fromJson(json);
-
+    return _handleApiRequest<AttributeOption>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/attributes/$attributeCode/options/$attributeOptionCode',
+        );
+      },
+      (json) {
+        final attributeOption = AttributeOption.fromJson(json);
         if (cacheAttributes) {
-          _attributeOptions[cacheKey] =
-              attributeOption; // Cache the attribute option
+          _attributeOptions[cacheKey] = attributeOption;
         }
-
         return attributeOption;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while fetching the attribute option: $e');
-    }
+      },
+    );
   }
 
   /// Retrieves a paginated list of attribute options for a given attribute.
@@ -379,21 +318,14 @@ class AkeneoApiClient {
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<AkeneoPaginatedResponse> getAttributeOptions(
       String attributeCode) async {
-    try {
-      final response = await _httpWrapper
-          .get('api/rest/v1/attributes/$attributeCode/options');
-
-      if (response.statusCode == 200) {
-        return AkeneoPaginatedResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while fetching attribute options: $e');
-    }
+    return _handleApiRequest<AkeneoPaginatedResponse>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/attributes/$attributeCode/options',
+        );
+      },
+      (json) => AkeneoPaginatedResponse.fromJson(json),
+    );
   }
 
   /// Updates an existing attribute option.
@@ -404,26 +336,16 @@ class AkeneoApiClient {
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> updateAttributeOption(
       AttributeOption updatedAttributeOption) async {
-    try {
+    return _handleApiRequest(() async {
       final updatedAttributeOptionData = updatedAttributeOption.toJson();
       final attributeOptionCode = updatedAttributeOption.code;
       updatedAttributeOptionData.remove('code');
 
-      final response = await _httpWrapper.patch(
+      return await _httpWrapper.patch(
         'api/rest/v1/attributes/${updatedAttributeOption.attribute}/options/$attributeOptionCode',
         updatedAttributeOptionData,
       );
-
-      if (response.statusCode != 204) {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while updating the attribute option: $e');
-    }
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Creates a new family.
@@ -433,21 +355,10 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> createFamily(Family family) async {
-    try {
+    return _handleApiRequest(() async {
       final familyData = family.toJson();
-      final response =
-          await _httpWrapper.post('api/rest/v1/families', familyData);
-
-      if (response.statusCode == 201) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while creating the family: $e');
-    }
+      return await _httpWrapper.post('api/rest/v1/families', familyData);
+    }, (json) => http.Response(json.toString(), 201));
   }
 
   /// Retrieves a family by its family code.
@@ -458,21 +369,12 @@ class AkeneoApiClient {
   /// Returns a [Family] object representing the fetched family.
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<Family> getFamily(String familyCode) async {
-    try {
-      final response =
-          await _httpWrapper.get('api/rest/v1/families/$familyCode');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return Family.fromJson(json);
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while fetching the family: $e');
-    }
+    return _handleApiRequest<Family>(
+      () async {
+        return await _httpWrapper.get('api/rest/v1/families/$familyCode');
+      },
+      (json) => Family.fromJson(json),
+    );
   }
 
   /// Retrieves a paginated list of families.
@@ -499,22 +401,15 @@ class AkeneoApiClient {
   Future<AkeneoPaginatedResponse> getFamilies({
     QueryParameter? params,
   }) async {
-    try {
-      final response = await _httpWrapper.get(
-        'api/rest/v1/families',
-        queryParameters: params?.toJson(),
-      );
-
-      if (response.statusCode == 200) {
-        return AkeneoPaginatedResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while fetching families: $e');
-    }
+    return _handleApiRequest<AkeneoPaginatedResponse>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/families',
+          queryParameters: params?.toJson(),
+        );
+      },
+      (json) => AkeneoPaginatedResponse.fromJson(json),
+    );
   }
 
   /// Updates an existing family.
@@ -524,25 +419,16 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> updateFamily(Family updatedFamily) async {
-    try {
+    return _handleApiRequest(() async {
       final updatedFamilyData = updatedFamily.toJson();
       final familyCode = updatedFamily.code;
       updatedFamilyData.remove('code');
 
-      final response = await _httpWrapper.patch(
+      return await _httpWrapper.patch(
         'api/rest/v1/families/$familyCode',
         updatedFamilyData,
       );
-
-      if (response.statusCode != 204) {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while updating the family: $e');
-    }
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Creates a new family variant.
@@ -553,24 +439,13 @@ class AkeneoApiClient {
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> createFamilyVariant(
       String family, FamilyVariant familyVariant) async {
-    try {
+    return _handleApiRequest(() async {
       final familyVariantData = familyVariant.toJson();
-      final response = await _httpWrapper.post(
+      return await _httpWrapper.post(
         'api/rest/v1/families/$family/variants',
         familyVariantData,
       );
-
-      if (response.statusCode == 201) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while creating the family variant: $e');
-    }
+    }, (json) => http.Response(json.toString(), 201));
   }
 
   /// Retrieves a family variant by its family code and variant code.
@@ -582,23 +457,14 @@ class AkeneoApiClient {
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<FamilyVariant> getFamilyVariant(
       String family, String familyVariantCode) async {
-    try {
-      final response = await _httpWrapper.get(
-        'api/rest/v1/families/$family/variants/$familyVariantCode',
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return FamilyVariant.fromJson(json);
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while fetching the family variant: $e');
-    }
+    return _handleApiRequest<FamilyVariant>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/families/$family/variants/$familyVariantCode',
+        );
+      },
+      (json) => FamilyVariant.fromJson(json),
+    );
   }
 
   /// Retrieves a paginated list of family variants for a given family.
@@ -609,21 +475,12 @@ class AkeneoApiClient {
   /// Returns an [AkeneoPaginatedResponse] containing the paginated list of family variants.
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<AkeneoPaginatedResponse> getFamilyVariants(String family) async {
-    try {
-      final response =
-          await _httpWrapper.get('api/rest/v1/families/$family/variants');
-
-      if (response.statusCode == 200) {
-        return AkeneoPaginatedResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while fetching family variants: $e');
-    }
+    return _handleApiRequest<AkeneoPaginatedResponse>(
+      () async {
+        return await _httpWrapper.get('api/rest/v1/families/$family/variants');
+      },
+      (json) => AkeneoPaginatedResponse.fromJson(json),
+    );
   }
 
   /// Updates an existing family variant.
@@ -634,26 +491,16 @@ class AkeneoApiClient {
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> updateFamilyVariant(
       String family, FamilyVariant updatedFamilyVariant) async {
-    try {
+    return _handleApiRequest(() async {
       final updatedFamilyVariantData = updatedFamilyVariant.toJson();
       final familyVariantCode = updatedFamilyVariant.code;
       updatedFamilyVariantData.remove('code');
 
-      final response = await _httpWrapper.patch(
+      return await _httpWrapper.patch(
         'api/rest/v1/families/$family/variants/$familyVariantCode',
         updatedFamilyVariantData,
       );
-
-      if (response.statusCode != 204) {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while updating the family variant: $e');
-    }
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Creates a new category.
@@ -663,21 +510,10 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> createCategory(Category category) async {
-    try {
+    return _handleApiRequest(() async {
       final categoryData = category.toJson();
-      final response =
-          await _httpWrapper.post('api/rest/v1/categories', categoryData);
-
-      if (response.statusCode == 201) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while creating the category: $e');
-    }
+      return await _httpWrapper.post('api/rest/v1/categories', categoryData);
+    }, (json) => http.Response(json.toString(), 201));
   }
 
   /// Retrieves a category by its category code.
@@ -688,21 +524,12 @@ class AkeneoApiClient {
   /// Returns a [Category] object representing the fetched category.
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<Category> getCategory(String categoryCode) async {
-    try {
-      final response =
-          await _httpWrapper.get('api/rest/v1/categories/$categoryCode');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return Category.fromJson(json);
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while fetching the category: $e');
-    }
+    return _handleApiRequest<Category>(
+      () async {
+        return await _httpWrapper.get('api/rest/v1/categories/$categoryCode');
+      },
+      (json) => Category.fromJson(json),
+    );
   }
 
   /// Retrieves a paginated list of categories.
@@ -715,22 +542,15 @@ class AkeneoApiClient {
   Future<AkeneoPaginatedResponse> getCategories({
     QueryParameter? params,
   }) async {
-    try {
-      final response = await _httpWrapper.get(
-        'api/rest/v1/categories',
-        queryParameters: params?.toJson(),
-      );
-
-      if (response.statusCode == 200) {
-        return AkeneoPaginatedResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while fetching categories: $e');
-    }
+    return _handleApiRequest<AkeneoPaginatedResponse>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/categories',
+          queryParameters: params?.toJson(),
+        );
+      },
+      (json) => AkeneoPaginatedResponse.fromJson(json),
+    );
   }
 
   /// Updates an existing category.
@@ -740,25 +560,16 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> updateCategory(Category updatedCategory) async {
-    try {
+    return _handleApiRequest(() async {
       final updatedCategoryData = updatedCategory.toJson();
       final categoryCode = updatedCategory.code;
       updatedCategoryData.remove('code');
 
-      final response = await _httpWrapper.patch(
+      return await _httpWrapper.patch(
         'api/rest/v1/categories/$categoryCode',
         updatedCategoryData,
       );
-
-      if (response.statusCode != 204) {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while updating the category: $e');
-    }
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Creates a new product.
@@ -768,21 +579,10 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> createProduct(Product product) async {
-    try {
+    return _handleApiRequest(() async {
       final productData = product.toJson();
-      final response =
-          await _httpWrapper.post('api/rest/v1/products', productData);
-
-      if (response.statusCode == 201) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while creating the product: $e');
-    }
+      return await _httpWrapper.post('api/rest/v1/products', productData);
+    }, (json) => http.Response(json.toString(), 201));
   }
 
   /// Retrieves a product by its product identifier.
@@ -793,21 +593,13 @@ class AkeneoApiClient {
   /// Returns a [Product] object representing the fetched product.
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<Product> getProduct(String productIdentifier) async {
-    try {
-      final response =
-          await _httpWrapper.get('api/rest/v1/products/$productIdentifier');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return Product.fromJson(json);
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while fetching the product: $e');
-    }
+    return _handleApiRequest<Product>(
+      () async {
+        return await _httpWrapper
+            .get('api/rest/v1/products/$productIdentifier');
+      },
+      (json) => Product.fromJson(json),
+    );
   }
 
   /// Fetches a list of products from the Akeneo API based on optional query parameters.
@@ -820,7 +612,7 @@ class AkeneoApiClient {
   ///
   /// Example usage:
   /// ```dart
-  ///     // filter to get products added with in the week
+  ///     /// filter to get products added with in the week
   ///     final queryParameters = QueryParameter(
   ///        filters: [
   ///          SearchFilter(
@@ -838,22 +630,15 @@ class AkeneoApiClient {
   Future<AkeneoPaginatedResponse> getProducts({
     QueryParameter? params,
   }) async {
-    try {
-      final response = await _httpWrapper.get(
-        'api/rest/v1/products',
-        queryParameters: params?.toJson(),
-      );
-
-      if (response.statusCode == 200) {
-        return AkeneoPaginatedResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while fetching products: $e');
-    }
+    return _handleApiRequest<AkeneoPaginatedResponse>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/products',
+          queryParameters: params?.toJson(),
+        );
+      },
+      (json) => AkeneoPaginatedResponse.fromJson(json),
+    );
   }
 
   /// Updates an existing product.
@@ -863,25 +648,16 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> updateProduct(Product updatedProduct) async {
-    try {
+    return _handleApiRequest(() async {
       final updatedProductData = updatedProduct.toJson();
       final productIdentifier = updatedProduct.identifier;
       updatedProductData.remove('identifier');
 
-      final response = await _httpWrapper.patch(
+      return await _httpWrapper.patch(
         'api/rest/v1/products/$productIdentifier',
         updatedProductData,
       );
-
-      if (response.statusCode != 204) {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while updating the product: $e');
-    }
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Deletes a product by its product identifier.
@@ -891,19 +667,10 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> deleteProduct(String productIdentifier) async {
-    try {
-      final response =
-          await _httpWrapper.delete('api/rest/v1/products/$productIdentifier');
-
-      if (response.statusCode != 204) {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while deleting the product: $e');
-    }
+    return _handleApiRequest(() async {
+      return await _httpWrapper
+          .delete('api/rest/v1/products/$productIdentifier');
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Creates a new product model.
@@ -913,22 +680,11 @@ class AkeneoApiClient {
   ///
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> createProductModel(ProductModel productModel) async {
-    try {
+    return _handleApiRequest(() async {
       final productModelData = productModel.toJson();
-      final response = await _httpWrapper.post(
+      return await _httpWrapper.post(
           'api/rest/v1/product-models', productModelData);
-
-      if (response.statusCode == 201) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while creating the product model: $e');
-    }
+    }, (json) => http.Response(json.toString(), 201));
   }
 
   /// Retrieves a product model by its product model code.
@@ -939,22 +695,13 @@ class AkeneoApiClient {
   /// Returns a [ProductModel] object representing the fetched product model.
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<ProductModel> getProductModel(String productModelCode) async {
-    try {
-      final response = await _httpWrapper
-          .get('api/rest/v1/product-models/$productModelCode');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
-        return ProductModel.fromJson(json);
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while fetching the product model: $e');
-    }
+    return _handleApiRequest<ProductModel>(
+      () async {
+        return await _httpWrapper
+            .get('api/rest/v1/product-models/$productModelCode');
+      },
+      (json) => ProductModel.fromJson(json),
+    );
   }
 
   /// Fetches a list of product models.
@@ -967,22 +714,15 @@ class AkeneoApiClient {
   Future<AkeneoPaginatedResponse> getProductModels({
     QueryParameter? params,
   }) async {
-    try {
-      final response = await _httpWrapper.get(
-        'api/rest/v1/product-models',
-        queryParameters: params?.toJson(),
-      );
-
-      if (response.statusCode == 200) {
-        return AkeneoPaginatedResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException('An error occurred while fetching product models: $e');
-    }
+    return _handleApiRequest<AkeneoPaginatedResponse>(
+      () async {
+        return await _httpWrapper.get(
+          'api/rest/v1/product-models',
+          queryParameters: params?.toJson(),
+        );
+      },
+      (json) => AkeneoPaginatedResponse.fromJson(json),
+    );
   }
 
   /// Updates an existing product model.
@@ -993,27 +733,17 @@ class AkeneoApiClient {
   /// Throws an [ApiException] if an error occurs during the API request or response.
   Future<http.Response> updateProductModel(
       ProductModel updatedProductModel) async {
-    try {
+    return _handleApiRequest(() async {
       final updatedProductModelData = updatedProductModel.toJson();
       final productModelCode = updatedProductModel.code;
       updatedProductModelData.remove('code');
       updatedProductModelData.remove('family_variant');
 
-      final response = await _httpWrapper.patch(
+      return await _httpWrapper.patch(
         'api/rest/v1/product-models/$productModelCode',
         updatedProductModelData,
       );
-
-      if (response.statusCode != 204) {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while updating the product model: $e');
-    }
+    }, (json) => http.Response(json.toString(), 204));
   }
 
   /// Creates a new media file associated with a product.
@@ -1027,8 +757,8 @@ class AkeneoApiClient {
     String attributeCode,
     String filePath,
   ) async {
-    try {
-      final response = await _httpWrapper.postFile(
+    return _handleApiRequest(() async {
+      return await _httpWrapper.postFile(
         url: 'api/rest/v1/media-files',
         filePath: filePath,
         payload: {
@@ -1040,18 +770,7 @@ class AkeneoApiClient {
           },
         },
       );
-
-      if (response.statusCode == 201) {
-        return response;
-      } else {
-        throw _createApiExceptionFromResponse(response.body);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-          'An error occurred while creating the product media file: $e');
-    }
+    }, (json) => http.Response(json.toString(), 201));
   }
 
   /// Retruns url for media file download.
